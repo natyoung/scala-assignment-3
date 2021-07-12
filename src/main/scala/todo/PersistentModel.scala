@@ -95,29 +95,64 @@ object PersistentModel extends Model:
    * (The InMemoryModel uses the same.)
    */
 
-  def create(task: Task): Id =
-    ???
+  def create(task: Task): Id = {
+    val nextId: Id = this.loadId().next
+    val tasks: mutable.LinkedHashMap[Id, Task] = mutable.LinkedHashMap.from(this.tasks.toList)
+    tasks.put(nextId, task)
+    saveId(nextId)
+    saveTasks(Tasks(tasks.toList))
+    nextId
+  }
 
   def read(id: Id): Option[Task] =
-    ???
+    this.tasks.toMap.get(id)
 
   def update(id: Id)(f: Task => Task): Option[Task] =
-    ???
+    val tasks: mutable.LinkedHashMap[Id, Task] = mutable.LinkedHashMap.from(this.tasks.toList)
+    val maybeTask: Option[Task] = tasks.get(id)
+    maybeTask match
+      case Some(existingTask: Task) => {
+        val updatedTask: Task = f(existingTask)
+        tasks.put(id, updatedTask)
+        saveTasks(Tasks(tasks.toList))
+        Option[Task](updatedTask)
+      }
+      case None => maybeTask
 
   def delete(id: Id): Boolean =
-    ???
+    val tasks: mutable.LinkedHashMap[Id, Task] = mutable.LinkedHashMap.from(this.tasks.toList)
+    val result = tasks.remove(id)
+    result match
+      case Some(_) => {
+        saveTasks(Tasks(tasks.toList))
+        true
+      }
+      case None => false
 
   def tasks: Tasks =
-    ???
+    loadTasks()
 
   def tasks(tag: Tag): Tasks =
-    ???
+    val tasks: Tasks = this.tasks
+    val filteredTasks: List[(Id, Task)] = tasks.toList.filter((id, task) => task.tags.contains(tag))
+    Tasks(filteredTasks)
 
   def complete(id: Id): Option[Task] =
-    ???
+    val tasks: mutable.LinkedHashMap[Id, Task] = mutable.LinkedHashMap.from(this.tasks.toList)
+    val maybeTask: Option[Task] = tasks.get(id)
+    maybeTask match
+      case Some(existingTask: Task) => {
+        val updatedTask: Task = existingTask.complete
+        tasks.put(id, updatedTask)
+        saveTasks(Tasks(tasks.toList))
+        Option[Task](updatedTask)
+      }
+      case None => maybeTask
 
   def tags: Tags =
-    ???
+    val tasks: mutable.LinkedHashMap[Id, Task] = mutable.LinkedHashMap.from(this.tasks.toList)
+    Tags(tasks.values.foldLeft(Set.empty[Tag])((s, t) => s ++ t.tags).toList)
 
   def clear(): Unit =
-    ???
+    saveTasks(Tasks(List.empty))
+    saveId(Id(0))
